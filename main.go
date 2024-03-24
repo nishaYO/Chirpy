@@ -1,12 +1,22 @@
 package main
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+)
 
 func main() {
 	mux := http.NewServeMux()
 	corsMux := middlewareCors(mux)
-	mux.Handle("/app/*", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+
+	cfg := &apiConfig{} //create instance of api config struct
+	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
+
 	mux.HandleFunc("/healthz", checkHealth)
+	mux.HandleFunc("/metrics", cfg.logMetrics)
+	mux.HandleFunc("/reset", cfg.resetMetrics)
+
 	server := http.Server{
 		Addr:    ":8080",
 		Handler: corsMux,
@@ -16,19 +26,16 @@ func main() {
 
 func checkHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Write([]byte("OK"))
 	w.WriteHeader(200)
+	w.Write([]byte("OK"))
 }
 
-func middlewareCors(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+func (cfg *apiConfig) logMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics := fmt.Sprintf("Hits: %d", cfg.fileserverHits)
+	w.Write([]byte(metrics))
+}
+
+func (cfg *apiConfig) resetMetrics(w http.ResponseWriter, r *http.Request) {
+	cfg.fileserverHits = 0
+	w.Write([]byte(strconv.Itoa(cfg.fileserverHits)))
 }
