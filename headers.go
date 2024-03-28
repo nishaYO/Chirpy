@@ -14,15 +14,3 @@ func middlewareCors(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-type apiConfig struct {
-	fileserverHits int
-}
-
-// this is a method of apiConfig struct
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits += 1
-		next.ServeHTTP(w, r)
-	})
-}
