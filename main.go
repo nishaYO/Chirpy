@@ -1,22 +1,35 @@
 package main
 
 import (
+	"log"
 	"net/http"
+
+	"github.com/nishayo/chirpy/internal/database"
 )
+
+type apiConfig struct {
+	fileserverHits int
+	DB             *database.DB
+}
 
 func main() {
 	mux := http.NewServeMux()
 	corsMux := middlewareCors(mux)
-
+	db, err := database.NewDB("database.json")
+	if err != nil {
+		log.Fatal(err)
+	}
 	cfg := apiConfig{
 		fileserverHits: 0,
+		DB:             db,
 	}
-	mux.Handle("/app/*", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
 
+	mux.Handle("/app/*", cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", checkHealth)
-	mux.HandleFunc("GET /admin/metrics", cfg.logMetrics)
-	mux.HandleFunc("GET /api/reset", cfg.resetMetrics)
-	mux.HandleFunc("POST /api/validate_chirp", validate_chirp)
+	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
+	mux.HandleFunc("GET /api/reset", cfg.handlerReset)
+	mux.HandleFunc("POST /api/chirps", cfg.handlerChirpsCreate)
+	mux.HandleFunc("GET /api/chirps", cfg.handlerChirpsRetrieve)
 
 	server := http.Server{
 		Addr:    ":8080",
